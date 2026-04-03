@@ -3,24 +3,23 @@
   "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/egg-limbo.json" },
   "name": "Limbo",
   "author": "xgigabaitx@gmail.com",
-  "description": "NanoLimbo — lightweight limbo server. Auto-update from GitHub Releases. startup.sh auto-updates from GitHub.",
+  "description": "LOOHP/Limbo — lightweight, standalone limbo server. Auto-update from Maven repository. Supports ViaLimbo for version compatibility.",
   "features": ["java_version", "pid_limit"],
   "docker_images": {
     "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
-    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
-    "Java 17": "ghcr.io/pterodactyl/yolks:java_17"
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
   },
   "file_denylist": [],
   "startup": "/bin/bash /home/container/startup.sh -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch",
   "config": {
     "files": "{}",
-    "startup": "{\"done\": \"Listening on\"}",
+    "startup": "{\"done\": \"Limbo server listening on\"}",
     "logs": "{}",
     "stop": "end"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/ash\napk add --no-cache curl\nmkdir -p /mnt/server && cd /mnt/server || exit 1\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\necho 'Done!'",
+      "script": "#!/bin/ash\nmkdir -p /mnt/server && cd /mnt/server || exit 1\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\ncurl -fsSL \"https://raw.githubusercontent.com/LOOHP/Limbo/master/src/main/resources/server.properties\" -o server.properties || true\necho 'Done!'",
       "container": "alpine:3.23",
       "entrypoint": "ash"
     }
@@ -28,7 +27,7 @@
   "variables": [
     {
       "name": "Auto Update",
-      "description": "Update NanoLimbo to the latest release",
+      "description": "Update Limbo to the latest version",
       "env_variable": "AUTO_UPDATE",
       "default_value": "true",
       "user_viewable": true,
@@ -40,20 +39,20 @@
       "name": "Server JAR File",
       "description": "JAR filename",
       "env_variable": "SERVER_JARFILE",
-      "default_value": "NanoLimbo.jar",
+      "default_value": "Limbo.jar",
       "user_viewable": true,
       "user_editable": true,
       "rules": "required|string|max:64",
       "field_type": "text"
     },
     {
-      "name": "Forwarding Secret",
-      "description": "Velocity forwarding secret configured in settings.yml (MODERN forwarding)",
-      "env_variable": "VELOCITY_SECRET",
-      "default_value": "",
+      "name": "Limbo Version",
+      "description": "Limbo version or 'latest' for automatic updates",
+      "env_variable": "LIMBO_VERSION",
+      "default_value": "latest",
       "user_viewable": true,
       "user_editable": true,
-      "rules": "nullable|string|max:256",
+      "rules": "required|string|max:64",
       "field_type": "text"
     },
     {
@@ -64,6 +63,26 @@
       "user_viewable": true,
       "user_editable": true,
       "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "ViaLimbo Version",
+      "description": "ViaLimbo version or 'latest' for automatic updates",
+      "env_variable": "VIALIMBO_VERSION",
+      "default_value": "latest",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Forwarding Secret",
+      "description": "Velocity forwarding secret written to server.properties (forwarding-secrets)",
+      "env_variable": "VELOCITY_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:256",
       "field_type": "text"
     }
   ]
