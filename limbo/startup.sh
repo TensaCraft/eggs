@@ -16,13 +16,16 @@ is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
 get_latest_version() {
     local artifact="$1"
     local metadata_url="https://repo.loohpjames.com/repository/com/loohp/${artifact}/maven-metadata-local.xml"
+    log "Fetching ${artifact} metadata from ${metadata_url}..."
     local metadata
     metadata=$(curl -fsSL "$metadata_url" 2>/dev/null) || { log_err "Failed to fetch ${artifact} metadata"; return 1; }
     
+    log "Parsing ${artifact} metadata..."
     local latest
     latest=$(echo "$metadata" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[A-Z]+)?|2026\.[0-9]+\.[0-9]+-ALPHA' | tail -1)
-    [ -z "$latest" ] && { log_err "Failed to parse ${artifact} metadata"; return 1; }
+    [ -z "$latest" ] && { log_err "Failed to parse ${artifact} metadata"; log_err "Metadata content: $(echo "$metadata" | head -10)"; return 1; }
     
+    log "Found latest ${artifact} version: ${latest}"
     echo "$latest"
 }
 
@@ -57,16 +60,28 @@ maybe_update_limbo() {
     local resolved_version
     resolved_version=$(resolve_version "$requested_version")
     
+    log "Limbo: requested version: ${requested_version}, resolved: ${resolved_version}"
+    
     local actual_version="$resolved_version"
     if [ "$resolved_version" = "latest" ]; then
+        log "Limbo: fetching latest version from Maven..."
         local latest
-        latest=$(get_latest_version "Limbo") || exit 1
-        actual_version="$latest"
+        latest=$(get_latest_version "Limbo")
+        if [ $? -ne 0 ] || [ -z "$latest" ]; then
+            log_err "Limbo: failed to get latest version from Maven"
+            log_err "Limbo: falling back to default version 2026.0.1-ALPHA"
+            actual_version="2026.0.1-ALPHA"
+        else
+            actual_version="$latest"
+            log "Limbo: latest version is ${actual_version}"
+        fi
     fi
     
     local build_id="limbo-${actual_version}"
     local jar_url
     jar_url=$(get_limbo_jar_url "$actual_version")
+    
+    log "Limbo: build_id=${build_id}, jar_url=${jar_url}"
     
     if [ -f "${BUILD_CACHE}" ] && [ -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ]; then
         local cached
@@ -111,15 +126,27 @@ maybe_update_vialimbo() {
     local resolved_version
     resolved_version=$(resolve_version "$requested_version")
     
+    log "ViaLimbo: requested version: ${requested_version}, resolved: ${resolved_version}"
+    
     local actual_version="$resolved_version"
     if [ "$resolved_version" = "latest" ]; then
+        log "ViaLimbo: fetching latest version from Maven..."
         local latest
-        latest=$(get_latest_version "ViaLimbo") || { log "ViaLimbo: failed to fetch latest version, skipping."; return 0; }
-        actual_version="$latest"
+        latest=$(get_latest_version "ViaLimbo")
+        if [ $? -ne 0 ] || [ -z "$latest" ]; then
+            log_err "ViaLimbo: failed to get latest version from Maven"
+            log "ViaLimbo: skipping plugin installation"
+            return 0
+        else
+            actual_version="$latest"
+            log "ViaLimbo: latest version is ${actual_version}"
+        fi
     fi
     
     local jar_url
     jar_url=$(get_vialimbo_jar_url "$actual_version")
+    
+    log "ViaLimbo: jar_url=${jar_url}"
     
     local cached
     cached=$(cat "${VIALIMBO_CACHE}" 2>/dev/null || echo "")
