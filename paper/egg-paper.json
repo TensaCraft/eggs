@@ -1,0 +1,242 @@
+{
+  "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL",
+  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/egg-paper.json" },
+  "name": "Minecraft Java",
+  "author": "xgigabaitx@gmail.com",
+  "description": "Paper, Folia, Purpur. Smart auto-update. startup.sh auto-updates from GitHub.",
+  "features": ["eula", "java_version", "pid_limit"],
+  "docker_images": {
+    "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
+    "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
+    "Java 11": "ghcr.io/pterodactyl/yolks:java_11",
+    "Java 8":  "ghcr.io/pterodactyl/yolks:java_8"
+  },
+  "file_denylist": [],
+  "startup": "/bin/bash /home/container/startup.sh -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1HeapRegionSize=8M -XX:G1HeapWastePercent=5 -XX:G1MaxNewSizePercent=40 -XX:G1MixedGCCountTarget=4 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1NewSizePercent=30 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:MaxGCPauseMillis=200 -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=32",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\": \"For help, type\"}",
+    "logs": "{}",
+    "stop": "stop"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/ash\napk add --no-cache curl\nmkdir -p /mnt/server && cd /mnt/server || exit 1\necho 'eula=true' > eula.txt\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\necho 'Done!'",
+      "container": "alpine:3.23",
+      "entrypoint": "ash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Server Core Type",
+      "description": "Server core type",
+      "env_variable": "CORE_TYPE",
+      "default_value": "paper",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:paper,folia,purpur",
+      "field_type": "text"
+    },
+    {
+      "name": "Minecraft Version",
+      "description": "Minecraft version or 'latest'",
+      "env_variable": "MINECRAFT_VERSION",
+      "default_value": "latest",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:20",
+      "field_type": "text"
+    },
+    {
+      "name": "Auto Update",
+      "description": "Download a new core version only when a new build is available",
+      "env_variable": "AUTO_UPDATE",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Server JAR File",
+      "description": "Server JAR filename",
+      "env_variable": "SERVER_JARFILE",
+      "default_value": "server.jar",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "MOTD",
+      "description": "Server description shown in the server list",
+      "env_variable": "MOTD",
+      "default_value": "A Minecraft Server",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:128",
+      "field_type": "text"
+    },
+    {
+      "name": "Max Players",
+      "description": "Maximum number of players",
+      "env_variable": "MAX_PLAYERS",
+      "default_value": "100",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:1|max:10000",
+      "field_type": "text"
+    },
+    {
+      "name": "Online Mode",
+      "description": "Mojang authentication. Disable for Velocity/BungeeCord",
+      "env_variable": "ONLINE_MODE",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Difficulty",
+      "description": "Game difficulty",
+      "env_variable": "DIFFICULTY",
+      "default_value": "normal",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:peaceful,easy,normal,hard",
+      "field_type": "text"
+    },
+    {
+      "name": "Gamemode",
+      "description": "Default game mode",
+      "env_variable": "GAMEMODE",
+      "default_value": "survival",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:survival,creative,adventure,spectator",
+      "field_type": "text"
+    },
+    {
+      "name": "Force Gamemode",
+      "description": "Force gamemode on player join",
+      "env_variable": "FORCE_GAMEMODE",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "PVP",
+      "description": "Enable PvP",
+      "env_variable": "PVP",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "View Distance",
+      "description": "Chunk view distance",
+      "env_variable": "VIEW_DISTANCE",
+      "default_value": "10",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:2|max:32",
+      "field_type": "text"
+    },
+    {
+      "name": "Simulation Distance",
+      "description": "Simulation distance",
+      "env_variable": "SIMULATION_DISTANCE",
+      "default_value": "8",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:2|max:32",
+      "field_type": "text"
+    },
+    {
+      "name": "Spawn Protection",
+      "description": "Spawn protection radius (0 = disabled)",
+      "env_variable": "SPAWN_PROTECTION",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:0|max:1000",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Nether",
+      "description": "Allow the Nether",
+      "env_variable": "ALLOW_NETHER",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Enable Command Blocks",
+      "description": "Enable command blocks",
+      "env_variable": "ENABLE_COMMAND_BLOCK",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Velocity Enabled",
+      "description": "Enable Velocity Modern Forwarding",
+      "env_variable": "VELOCITY_ENABLED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Velocity Secret",
+      "description": "Velocity secret key (forwarding.secret)",
+      "env_variable": "VELOCITY_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:256",
+      "field_type": "text"
+    },
+    {
+      "name": "RCON Enable",
+      "description": "Enable RCON",
+      "env_variable": "RCON_ENABLE",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "RCON Port",
+      "description": "RCON port",
+      "env_variable": "RCON_PORT",
+      "default_value": "25575",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:1024|max:65535",
+      "field_type": "text"
+    },
+    {
+      "name": "RCON Password",
+      "description": "RCON password",
+      "env_variable": "RCON_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:256",
+      "field_type": "text"
+    }
+  ]
+}
