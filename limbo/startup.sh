@@ -52,7 +52,7 @@ resolve_build() {
 
     BUILD_NUMBER=$(echo "$resp" | json_get "tag_name")
     BUILD_ID="nanolimbo-${BUILD_NUMBER}"
-    DOWNLOAD_URL=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar"' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/')
+    DOWNLOAD_URL=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/' | sed 's/\\\//g')
     [ -z "$DOWNLOAD_URL" ] && { log_err "JAR not found in NanoLimbo releases"; exit 1; }
 }
 
@@ -99,7 +99,7 @@ maybe_update_vialimbo() {
         || { log "ViaLimbo: GitHub unavailable, skipping."; return 0; }
 
     local tag; tag=$(echo "$resp" | json_get "tag_name")
-    local url; url=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar"' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/')
+    local url; url=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/' | sed 's/\\\//g')
     [ -z "$url" ] && { log "ViaLimbo: JAR not found in releases, skipping."; return 0; }
 
     local cached; cached=$(cat "${VIALIMBO_CACHE}" 2>/dev/null || echo "")
