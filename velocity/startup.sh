@@ -13,6 +13,21 @@ log_err() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; }
 is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
 json_get() { jq -r "$1" 2>/dev/null; }
 
+check_jq() {
+    if ! command -v jq >/dev/null 2>&1; then
+        log "jq not found. Attempting to install..."
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y jq >/dev/null 2>&1 && return 0
+        elif command -v apk >/dev/null 2>&1; then
+            apk add --no-cache jq >/dev/null 2>&1 && return 0
+        fi
+        log_err "jq is required but not available. Please install it manually."
+        return 1
+    fi
+    return 0
+}
+check_jq || exit 1
+
 # ── Self-update ───────────────────────────────────────────────────────
 
 self_update() {
