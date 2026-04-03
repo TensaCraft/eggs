@@ -11,29 +11,15 @@ log()     { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log_err() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; }
 
 is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
-json_get() { jq -r "$1" 2>/dev/null; }
-
-check_jq() {
-    if ! command -v jq >/dev/null 2>&1; then
-        log "jq not found. Attempting to install..."
-        if command -v apt-get >/dev/null 2>&1; then
-            apt-get update -qq && apt-get install -y jq >/dev/null 2>&1 && return 0
-        elif command -v apk >/dev/null 2>&1; then
-            apk add --no-cache jq >/dev/null 2>&1 && return 0
-        fi
-        log_err "jq is required but not available. Please install it manually."
-        return 1
-    fi
-    return 0
+json_get() {
+    local field="$1"
+    grep -o "\"${field}\":[ ]*\"[^\"]*\"" | sed 's/.*"'"${field}"'":[ ]*"\([^"]*\)".*/\1/'
 }
-check_jq || exit 1
-
-# ── Self-update ───────────────────────────────────────────────────────
 
 self_update() {
     local remote_sha
     remote_sha=$(curl -fsSL "https://api.github.com/repos/tensacraft/eggs/contents/${SCRIPT_SUBPATH}" \
-        | json_get ".sha" 2>/dev/null)
+        | json_get "sha" 2>/dev/null)
     [ -z "$remote_sha" ] && { log "Self-update: GitHub unavailable, skipping."; return 0; }
 
     local current_sha
@@ -64,9 +50,9 @@ resolve_build() {
     resp=$(curl -fsSL "https://api.github.com/repos/Nan1t/NanoLimbo/releases/latest") \
         || { log_err "Failed to fetch NanoLimbo releases"; exit 1; }
 
-    BUILD_NUMBER=$(echo "$resp" | json_get ".tag_name")
+    BUILD_NUMBER=$(echo "$resp" | json_get "tag_name")
     BUILD_ID="nanolimbo-${BUILD_NUMBER}"
-    DOWNLOAD_URL=$(echo "$resp" | jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url')
+    DOWNLOAD_URL=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar"' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/')
     [ -z "$DOWNLOAD_URL" ] && { log_err "JAR not found in NanoLimbo releases"; exit 1; }
 }
 
@@ -112,8 +98,8 @@ maybe_update_vialimbo() {
     resp=$(curl -fsSL "https://api.github.com/repos/4drian3d/ViaLimbo/releases/latest") \
         || { log "ViaLimbo: GitHub unavailable, skipping."; return 0; }
 
-    local tag; tag=$(echo "$resp" | json_get ".tag_name")
-    local url; url=$(echo "$resp" | jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url')
+    local tag; tag=$(echo "$resp" | json_get "tag_name")
+    local url; url=$(echo "$resp" | grep -o '"browser_download_url":"[^"]*"' | grep '\.jar"' | sed 's/.*"browser_download_url":"\([^"]*\)".*/\1/')
     [ -z "$url" ] && { log "ViaLimbo: JAR not found in releases, skipping."; return 0; }
 
     local cached; cached=$(cat "${VIALIMBO_CACHE}" 2>/dev/null || echo "")

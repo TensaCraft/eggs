@@ -11,29 +11,15 @@ log()     { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log_err() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; }
 
 is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
-json_get() { jq -r "$1" 2>/dev/null; }
-
-check_jq() {
-    if ! command -v jq >/dev/null 2>&1; then
-        log "jq not found. Attempting to install..."
-        if command -v apt-get >/dev/null 2>&1; then
-            apt-get update -qq && apt-get install -y jq >/dev/null 2>&1 && return 0
-        elif command -v apk >/dev/null 2>&1; then
-            apk add --no-cache jq >/dev/null 2>&1 && return 0
-        fi
-        log_err "jq is required but not available. Please install it manually."
-        return 1
-    fi
-    return 0
+json_get() {
+    local field="$1"
+    grep -o "\"${field}\":[ ]*\"[^\"]*\"" | sed 's/.*"'"${field}"'":[ ]*"\([^"]*\)".*/\1/'
 }
-check_jq || exit 1
-
-# ── Self-update ───────────────────────────────────────────────────────
 
 self_update() {
     local remote_sha
     remote_sha=$(curl -fsSL "https://api.github.com/repos/tensacraft/eggs/contents/${SCRIPT_SUBPATH}" \
-        | json_get ".sha" 2>/dev/null)
+        | json_get "sha" 2>/dev/null)
     [ -z "$remote_sha" ] && { log "Self-update: GitHub unavailable, skipping."; return 0; }
 
     local current_sha
@@ -60,7 +46,7 @@ self_update "$@"
 # ── Version ───────────────────────────────────────────────────────────
 
 resolve_latest_version() {
-    curl -fsSL "https://api.papermc.io/v3/projects/velocity" | json_get ".versions[-1]"
+    curl -fsSL "https://api.papermc.io/v3/projects/velocity" | grep -o '"versions":[^]]*' | grep -o '"[^"]*"' | tail -1 | tr -d '"'
 }
 
 # ── Build ─────────────────────────────────────────────────────────────
@@ -70,8 +56,8 @@ resolve_build() {
     local resp
     resp=$(curl -fsSL "https://api.papermc.io/v3/projects/velocity/versions/${version}/builds/latest") \
         || { log_err "Failed to fetch Velocity build for ${version}"; exit 1; }
-    BUILD_NUMBER=$(echo "$resp" | json_get ".build")
-    local jar; jar=$(echo "$resp" | json_get ".downloads.application.name")
+    BUILD_NUMBER=$(echo "$resp" | grep -o '"build":[0-9]*' | sed 's/.*://')
+    local jar; jar=$(echo "$resp" | grep '"downloads"' -A 20 | grep '"application"' -A 10 | grep '"name"' | head -1 | sed 's/.*"name":"\([^"]*\)".*/\1/')
     BUILD_ID="velocity-${version}-${BUILD_NUMBER}"
     DOWNLOAD_URL="https://api.papermc.io/v3/projects/velocity/versions/${version}/builds/${BUILD_NUMBER}/downloads/${jar}"
 }

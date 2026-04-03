@@ -22,7 +22,7 @@
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/ash\napk add --no-cache curl jq\nmkdir -p /mnt/server && cd /mnt/server || exit 1\necho 'eula=true' > eula.txt\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\necho 'Done!'",
+      "script": "#!/bin/ash\napk add --no-cache curl\nmkdir -p /mnt/server && cd /mnt/server || exit 1\necho 'eula=true' > eula.txt\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\necho 'Done!'",
       "container": "alpine:3.23",
       "entrypoint": "ash"
     }
