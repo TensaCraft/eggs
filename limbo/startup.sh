@@ -20,7 +20,7 @@ get_latest_version() {
     metadata=$(curl -fsSL "$metadata_url" 2>/dev/null) || { log_err "Failed to fetch ${artifact} metadata"; return 1; }
     
     local latest
-    latest=$(echo "$metadata" | grep -o '<latest>[^<]*' | sed 's/<latest>//' | head -1)
+    latest=$(echo "$metadata" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[A-Z]+)?|2026\.[0-9]+\.[0-9]+-ALPHA' | tail -1)
     [ -z "$latest" ] && { log_err "Failed to parse ${artifact} metadata"; return 1; }
     
     echo "$latest"
