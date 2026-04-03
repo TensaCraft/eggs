@@ -140,15 +140,6 @@ maybe_update() {
     fi
 }
 
-configure_velocity_forwarding() {
-    is_true "${VELOCITY_ENABLED}" || return 0
-    [ -z "${VELOCITY_SECRET}" ] && return 0
-
-    # Write forwarding.secret file (paper-global.yml is handled by Pterodactyl config parser)
-    echo "${VELOCITY_SECRET}" > "${CONTAINER_DIR}/forwarding.secret"
-    log "Velocity forwarding: forwarding.secret written."
-}
-
 # ── Main ─────────────────────────────────────────────────────────────
 
 if is_true "${AUTO_UPDATE}"; then
@@ -158,8 +149,6 @@ else
     log "AUTO_UPDATE: disabled."
     [ ! -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ] && { log "JAR not found, downloading..."; maybe_update; }
 fi
-
-configure_velocity_forwarding
 
 log "Starting ${CORE_TYPE} ${MINECRAFT_VERSION}..."
 cd "${CONTAINER_DIR}" || exit 1

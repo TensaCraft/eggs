@@ -1,16 +1,17 @@
 {
   "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL",
-  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/egg-limbo.json" },
+  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/egg-limbo-pelican.json" },
   "name": "Limbo ViaLimbo auto-update",
   "author": "xgigabaitx@gmail.com",
   "description": "LOOHP/Limbo — lightweight limbo server. Auto-update from Modrinth. ViaLimbo for multi-version support.",
   "features": ["java_version", "pid_limit"],
   "docker_images": {
-    "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
-    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
-    "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
-    "Java 11": "ghcr.io/pterodactyl/yolks:java_11",
-    "Java 8":  "ghcr.io/pterodactyl/yolks:java_8"
+    "Java 25": "ghcr.io/pelican-eggs/yolks:java_25",
+    "Java 22": "ghcr.io/pelican-eggs/yolks:java_22",
+    "Java 21": "ghcr.io/pelican-eggs/yolks:java_21",
+    "Java 17": "ghcr.io/pelican-eggs/yolks:java_17",
+    "Java 11": "ghcr.io/pelican-eggs/yolks:java_11",
+    "Java 8":  "ghcr.io/pelican-eggs/yolks:java_8"
   },
   "file_denylist": [],
   "startup": "/bin/bash /home/container/startup.sh --enable-native-access=ALL-UNNAMED -Djline.terminal=dumb -Xms128M -XX:MaxRAMPercentage=95.0",
@@ -23,7 +24,7 @@
   "scripts": {
     "installation": {
       "script": "#!/bin/ash\nmkdir -p /mnt/server && cd /mnt/server || exit 1\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\nif [ ! -f server.properties ]; then\n  curl -fsSL \"https://raw.githubusercontent.com/LOOHP/Limbo/master/src/main/resources/server.properties\" -o server.properties || true\nfi\necho 'Done!'",
-      "container": "ghcr.io/pterodactyl/installers:alpine",
+      "container": "ghcr.io/pelican-eggs/installers:alpine",
       "entrypoint": "ash"
     }
   },

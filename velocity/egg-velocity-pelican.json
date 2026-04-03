@@ -1,19 +1,19 @@
 {
   "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL",
-  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/velocity/egg-velocity.json" },
+  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/velocity/egg-velocity-pelican.json" },
   "name": "Velocity auto-update",
   "author": "xgigabaitx@gmail.com",
   "description": "Velocity proxy server. Smart auto-update. startup.sh auto-updates from GitHub.",
   "features": ["java_version", "pid_limit"],
   "docker_images": {
-    "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
-    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
-    "Java 19": "ghcr.io/pterodactyl/yolks:java_19",
-    "Java 18": "ghcr.io/pterodactyl/yolks:java_18",
-    "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
-    "Java 16": "ghcr.io/pterodactyl/yolks:java_16",
-    "Java 11": "ghcr.io/pterodactyl/yolks:java_11",
-    "Java 8":  "ghcr.io/pterodactyl/yolks:java_8"
+    "Java 25": "ghcr.io/pelican-eggs/yolks:java_25",
+    "Java 22": "ghcr.io/pelican-eggs/yolks:java_22",
+    "Java 21": "ghcr.io/pelican-eggs/yolks:java_21",
+    "Java 19": "ghcr.io/pelican-eggs/yolks:java_19",
+    "Java 17": "ghcr.io/pelican-eggs/yolks:java_17",
+    "Java 16": "ghcr.io/pelican-eggs/yolks:java_16",
+    "Java 11": "ghcr.io/pelican-eggs/yolks:java_11",
+    "Java 8":  "ghcr.io/pelican-eggs/yolks:java_8"
   },
   "file_denylist": [],
   "startup": "/bin/bash /home/container/startup.sh --enable-native-access=ALL-UNNAMED -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15",
@@ -26,7 +26,7 @@
   "scripts": {
     "installation": {
       "script": "#!/bin/ash\nmkdir -p /mnt/server && cd /mnt/server || exit 1\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/velocity/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\nif [ ! -f velocity.toml ]; then\n  curl -fsSL \"https://raw.githubusercontent.com/PaperMC/Velocity/dev/3.0.0/proxy/src/main/resources/default-velocity.toml\" -o velocity.toml || printf 'bind = \"0.0.0.0:25577\"\\n' > velocity.toml\nfi\nif [ ! -f forwarding.secret ]; then\n  date +%s | sha256sum | base64 | head -c 12 > forwarding.secret\nfi\necho 'Done!'",
-      "container": "ghcr.io/pterodactyl/installers:alpine",
+      "container": "ghcr.io/pelican-eggs/installers:alpine",
       "entrypoint": "ash"
     }
   },

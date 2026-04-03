@@ -44,105 +44,61 @@ self_update() {
 
 self_update "$@"
 
-# ── Jenkins helpers ──────────────────────────────────────────────────
+# ── Modrinth API (Limbo) ────────────────────────────────────────────
 
-# Get latest successful Limbo build from Jenkins
-# Sets: JAR_NAME, BUILD_NUMBER, DOWNLOAD_URL
-get_latest_limbo_build() {
-    log "Fetching latest Limbo build from Jenkins..."
-    local api_url="https://ci.loohpjames.com/job/Limbo/lastSuccessfulBuild/api/json"
-    local json
-    json=$(curl -fsSL "$api_url" 2>/dev/null) || { log_err "Failed to fetch Limbo from Jenkins"; return 1; }
+# Fetch Limbo from Modrinth API
+# Sets: DOWNLOAD_URL, BUILD_ID
+fetch_limbo() {
+    local mc_version="${MINECRAFT_VERSION:-latest}"
+    local api_url="https://api.modrinth.com/v2/project/limbo-server/version"
 
-    JAR_NAME=$(echo "$json" | grep -o '"fileName":"Limbo[^"]*\.jar"' | head -1 | sed 's/.*"fileName":"\([^"]*\)".*/\1/')
-    [ -z "$JAR_NAME" ] && { log_err "No Limbo JAR found in Jenkins response"; return 1; }
-
-    BUILD_NUMBER=$(echo "$json" | grep -o '"number":[0-9]*' | head -1 | sed 's/.*://')
-    [ -z "$BUILD_NUMBER" ] && { log_err "No build number found"; return 1; }
-
-    local rel_path
-    rel_path=$(echo "$json" | grep -o '"relativePath":"target/Limbo[^"]*"' | head -1 | sed 's/.*"relativePath":"\([^"]*\)".*/\1/')
-    [ -z "$rel_path" ] && rel_path="target/${JAR_NAME}"
-
-    DOWNLOAD_URL="https://ci.loohpjames.com/job/Limbo/${BUILD_NUMBER}/artifact/${rel_path}"
-    log "Latest Limbo: build #${BUILD_NUMBER}, ${JAR_NAME}"
-}
-
-# Find Limbo build for a specific Minecraft version by scanning Jenkins builds
-# The JAR filename format is: Limbo-{LimboVer}-{MCVer}.jar
-# Sets: JAR_NAME, BUILD_NUMBER, DOWNLOAD_URL
-get_limbo_build_for_mc_version() {
-    local mc_version="$1"
-    log "Searching Jenkins for Limbo build supporting Minecraft ${mc_version}..."
-
-    local json
-    json=$(curl -fsSL "https://ci.loohpjames.com/job/Limbo/api/json?depth=1" 2>/dev/null) \
-        || { log_err "Failed to fetch Limbo builds list from Jenkins"; return 1; }
-
-    # Extract (fileName, number) pairs from builds JSON
-    local pairs
-    pairs=$(echo "$json" | tr ',' '\n' | tr '{' '\n' \
-        | grep -E '"(number|fileName)"' \
-        | grep -E '"number":[0-9]+|"fileName":"Limbo[^"]*\.jar"')
-
-    # Find first JAR matching the MC version suffix
-    JAR_NAME=""
-    BUILD_NUMBER=""
-    local prev_line=""
-    while IFS= read -r line; do
-        if echo "$line" | grep -q '"fileName"'; then
-            prev_line="$line"
-        elif echo "$line" | grep -q '"number"'; then
-            if echo "$prev_line" | grep -q "\"fileName\":\"Limbo[^\"]*-${mc_version}\\.jar\""; then
-                JAR_NAME=$(echo "$prev_line" | sed 's/.*"fileName":"\([^"]*\)".*/\1/')
-                BUILD_NUMBER=$(echo "$line" | grep -o '[0-9]*')
-                break
-            fi
-        fi
-    done <<< "$pairs"
-
-    if [ -z "$JAR_NAME" ] || [ -z "$BUILD_NUMBER" ]; then
-        log_err "No Limbo build found for Minecraft ${mc_version}"
-        log_err "Available MC versions from Jenkins:"
-        echo "$pairs" | grep '"fileName"' | sed 's/.*-\([0-9][^"]*\)\.jar".*/  \1/' | sort -uV
-        return 1
+    if [ "${mc_version,,}" != "latest" ]; then
+        api_url="${api_url}?game_versions=%5B%22${mc_version}%22%5D"
     fi
 
-    DOWNLOAD_URL="https://ci.loohpjames.com/job/Limbo/${BUILD_NUMBER}/artifact/target/${JAR_NAME}"
-    log "Found: Limbo build #${BUILD_NUMBER}, ${JAR_NAME} (Minecraft ${mc_version})"
+    log "Fetching Limbo from Modrinth (MC ${mc_version})..."
+    local json
+    json=$(curl -fsSL "$api_url" 2>/dev/null) || { log_err "Modrinth API unavailable"; return 1; }
+
+    DOWNLOAD_URL=$(echo "$json" | grep -o '"url":"https://cdn\.modrinth\.com/[^"]*\.jar"' | head -1 \
+        | sed 's/.*"url":"\([^"]*\)".*/\1/')
+    [ -z "$DOWNLOAD_URL" ] && { log_err "No Limbo JAR found on Modrinth for MC ${mc_version}"; return 1; }
+
+    local version_number
+    version_number=$(echo "$json" | grep -o '"version_number":"[^"]*"' | head -1 \
+        | sed 's/.*"version_number":"\([^"]*\)".*/\1/')
+
+    local filename
+    filename=$(echo "$json" | grep -o '"filename":"Limbo[^"]*\.jar"' | head -1 \
+        | sed 's/.*"filename":"\([^"]*\)".*/\1/')
+
+    BUILD_ID="limbo-${version_number:-unknown}"
+    log "Limbo: ${version_number} (${filename})"
 }
 
 # ── Limbo update ─────────────────────────────────────────────────────
 
 maybe_update_limbo() {
-    local mc_version="${MINECRAFT_VERSION:-latest}"
-
-    if [ "${mc_version,,}" = "latest" ]; then
-        get_latest_limbo_build || exit 1
-    else
-        get_limbo_build_for_mc_version "$mc_version" || exit 1
-    fi
-
-    local build_id="limbo-${BUILD_NUMBER}"
+    fetch_limbo || exit 1
 
     local cache_file="${CACHE_DIR}/limbo_build"
     if [ -f "$cache_file" ] && [ -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ]; then
         local cached
         cached=$(cat "$cache_file")
-        if [ "$cached" = "$build_id" ]; then
-            log "Limbo: up to date (build #${BUILD_NUMBER})."
+        if [ "$cached" = "$BUILD_ID" ]; then
+            log "Limbo: up to date (${BUILD_ID})."
             return 0
         fi
-        log "Limbo: updating ${cached} -> ${build_id}"
+        log "Limbo: updating ${cached} -> ${BUILD_ID}"
     else
-        log "Limbo: first download (build #${BUILD_NUMBER})"
+        log "Limbo: first download (${BUILD_ID})"
     fi
 
     cd "${CONTAINER_DIR}" || exit 1
     [ -f "${SERVER_JARFILE}" ] && cp "${SERVER_JARFILE}" "${SERVER_JARFILE}.bak"
 
     if curl -fsSL --progress-bar -o "${SERVER_JARFILE}" "${DOWNLOAD_URL}"; then
-        echo "$build_id" > "$cache_file"
+        echo "$BUILD_ID" > "$cache_file"
         rm -f "${SERVER_JARFILE}.bak"
         log "Limbo: downloaded ${SERVER_JARFILE}"
     else
@@ -152,7 +108,7 @@ maybe_update_limbo() {
     fi
 }
 
-# ── ViaLimbo ─────────────────────────────────────────────────────────
+# ── ViaLimbo (Jenkins) ──────────────────────────────────────────────
 
 maybe_update_vialimbo() {
     mkdir -p "${PLUGINS_DIR}"
@@ -195,7 +151,6 @@ maybe_update_vialimbo() {
             log "ViaLimbo: download failed, skipping."
         fi
     else
-        # Specific version from Maven repo
         local download_url="https://repo.loohpjames.com/repository/com/loohp/ViaLimbo/${version}/ViaLimbo-${version}.jar"
         local cache_id="vialimbo-${version}"
 
