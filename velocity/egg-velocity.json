@@ -1,7 +1,7 @@
 {
   "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL",
   "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/velocity/egg-velocity.json" },
-  "name": "Velocity",
+  "name": "Velocity auto-update",
   "author": "xgigabaitx@gmail.com",
   "description": "Velocity proxy server. Smart auto-update. startup.sh auto-updates from GitHub.",
   "features": ["java_version", "pid_limit"],
