@@ -3,19 +3,19 @@
   "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/limbo/egg-limbo.json" },
   "name": "Limbo",
   "author": "xgigabaitx@gmail.com",
-  "description": "LOOHP/Limbo — lightweight, standalone limbo server. Auto-update from Maven repository. Supports ViaLimbo for version compatibility.",
+  "description": "LOOHP/Limbo — lightweight, standalone limbo server. Auto-update from Jenkins CI. Supports ViaLimbo for version compatibility.",
   "features": ["java_version", "pid_limit"],
   "docker_images": {
     "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
     "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
   },
   "file_denylist": [],
-  "startup": "/bin/bash /home/container/startup.sh -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch",
+  "startup": "/bin/bash /home/container/startup.sh -Djline.terminal=dumb -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch",
   "config": {
-    "files": "{}",
+    "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"velocity-modern\": \"{{env.VELOCITY_ENABLED}}\",\r\n            \"forwarding-secrets\": \"{{env.VELOCITY_SECRET}}\"\r\n        }\r\n    }\r\n}",
     "startup": "{\"done\": \"Limbo server listening on\"}",
     "logs": "{}",
-    "stop": "end"
+    "stop": "stop"
   },
   "scripts": {
     "installation": {
@@ -27,7 +27,7 @@
   "variables": [
     {
       "name": "Auto Update",
-      "description": "Update Limbo to the latest version",
+      "description": "Update Limbo to latest version",
       "env_variable": "AUTO_UPDATE",
       "default_value": "true",
       "user_viewable": true,
@@ -46,9 +46,9 @@
       "field_type": "text"
     },
     {
-      "name": "Limbo Version",
-      "description": "Limbo version or 'latest' for automatic updates",
-      "env_variable": "LIMBO_VERSION",
+      "name": "Minecraft Version",
+      "description": "Minecraft version (e.g., 1.20.1, 1.21.4) or 'latest' for automatic updates",
+      "env_variable": "MINECRAFT_VERSION",
       "default_value": "latest",
       "user_viewable": true,
       "user_editable": true,
@@ -73,6 +73,16 @@
       "user_viewable": true,
       "user_editable": true,
       "rules": "required|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Velocity Enabled",
+      "description": "Enable Velocity Modern Forwarding",
+      "env_variable": "VELOCITY_ENABLED",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
       "field_type": "text"
     },
     {

@@ -1,6 +1,6 @@
 {
   "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL",
-  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/egg-paper.json" },
+  "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/paper/egg-paper.json" },
   "name": "Minecraft Java",
   "author": "xgigabaitx@gmail.com",
   "description": "Paper, Folia, Purpur. Smart auto-update. startup.sh auto-updates from GitHub.",
@@ -15,14 +15,14 @@
   "file_denylist": [],
   "startup": "/bin/bash /home/container/startup.sh -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1HeapRegionSize=8M -XX:G1HeapWastePercent=5 -XX:G1MaxNewSizePercent=40 -XX:G1MixedGCCountTarget=4 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1NewSizePercent=30 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:MaxGCPauseMillis=200 -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=32",
   "config": {
-    "files": "{}",
-    "startup": "{\"done\": \"For help, type\"}",
+    "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"query.port\": \"{{server.build.default.port}}\",\r\n            \"motd\": \"{{env.MOTD}}\",\r\n            \"max-players\": \"{{env.MAX_PLAYERS}}\",\r\n            \"online-mode\": \"{{env.ONLINE_MODE}}\",\r\n            \"difficulty\": \"{{env.DIFFICULTY}}\",\r\n            \"gamemode\": \"{{env.GAMEMODE}}\",\r\n            \"force-gamemode\": \"{{env.FORCE_GAMEMODE}}\",\r\n            \"pvp\": \"{{env.PVP}}\",\r\n            \"view-distance\": \"{{env.VIEW_DISTANCE}}\",\r\n            \"simulation-distance\": \"{{env.SIMULATION_DISTANCE}}\",\r\n            \"spawn-protection\": \"{{env.SPAWN_PROTECTION}}\",\r\n            \"allow-nether\": \"{{env.ALLOW_NETHER}}\",\r\n            \"enable-command-block\": \"{{env.ENABLE_COMMAND_BLOCK}}\",\r\n            \"enable-rcon\": \"{{env.RCON_ENABLE}}\",\r\n            \"rcon.port\": \"{{env.RCON_PORT}}\",\r\n            \"rcon.password\": \"{{env.RCON_PASSWORD}}\"\r\n        }\r\n    },\r\n    \"config/paper-global.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"proxies.velocity.enabled\": \"{{env.VELOCITY_ENABLED}}\",\r\n            \"proxies.velocity.secret\": \"{{env.VELOCITY_SECRET}}\"\r\n        }\r\n    },\r\n    \"eula.txt\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"eula\": \"true\"\r\n        }\r\n    }\r\n}",
+    "startup": "{\"done\": \")! For help, type \"}",
     "logs": "{}",
     "stop": "stop"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/ash\napk add --no-cache curl\nmkdir -p /mnt/server && cd /mnt/server || exit 1\necho 'eula=true' > eula.txt\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/paper-mc/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\necho 'Done!'",
+      "script": "#!/bin/ash\napk add --no-cache curl\nmkdir -p /mnt/server && cd /mnt/server || exit 1\necho 'eula=true' > eula.txt\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/paper/startup.sh\" -o startup.sh || { echo 'Failed to download startup.sh'; exit 1; }\nchmod +x startup.sh\nif [ ! -f server.properties ]; then\n  printf 'server-port=25565\\nserver-ip=\\n' > server.properties\nfi\necho 'Done!'",
       "container": "alpine:3.23",
       "entrypoint": "ash"
     }

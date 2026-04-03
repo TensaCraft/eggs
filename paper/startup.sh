@@ -3,23 +3,23 @@
 # https://github.com/tensacraft/eggs
 
 readonly CONTAINER_DIR="/home/container"
-readonly BUILD_CACHE="${CONTAINER_DIR}/.build_cache"
-readonly SHA_CACHE="${CONTAINER_DIR}/.startup_sha"
-readonly SCRIPT_SUBPATH="paper-mc/startup.sh"
+readonly CACHE_DIR="${CONTAINER_DIR}/.cache"
+readonly SHA_CACHE="${CACHE_DIR}/startup_sha"
+readonly SCRIPT_SUBPATH="paper/startup.sh"
+
+mkdir -p "${CACHE_DIR}"
 
 log()     { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log_err() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; }
 
-is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
-json_get() {
-    local field="$1"
-    grep -o "\"${field}\":[ ]*\"[^\"]*\"" | sed 's/.*"'"${field}"'":[ ]*"\([^"]*\)".*/\1/'
-}
+is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac; }
+
+# ── Self-update ──────────────────────────────────────────────────────
 
 self_update() {
     local remote_sha
-    remote_sha=$(curl -fsSL "https://api.github.com/repos/tensacraft/eggs/contents/${SCRIPT_SUBPATH}" \
-        | json_get "sha" 2>/dev/null)
+    remote_sha=$(curl -fsSL "https://api.github.com/repos/tensacraft/eggs/contents/${SCRIPT_SUBPATH}" 2>/dev/null \
+        | grep -o '"sha":"[^"]*"' | head -1 | sed 's/.*"sha":"\([^"]*\)".*/\1/')
     [ -z "$remote_sha" ] && { log "Self-update: GitHub unavailable, skipping."; return 0; }
 
     local current_sha
@@ -28,7 +28,7 @@ self_update() {
         log "Self-update: up to date (${remote_sha:0:7})."; return 0
     fi
 
-    log "Self-update: ${current_sha:0:7} → ${remote_sha:0:7}"
+    log "Self-update: ${current_sha:0:7} -> ${remote_sha:0:7}"
     if curl -fsSL "https://raw.githubusercontent.com/tensacraft/eggs/main/${SCRIPT_SUBPATH}" \
             -o "${CONTAINER_DIR}/startup.sh.new"; then
         mv "${CONTAINER_DIR}/startup.sh.new" "${CONTAINER_DIR}/startup.sh"
@@ -43,58 +43,85 @@ self_update() {
 
 self_update "$@"
 
-# ── Version ───────────────────────────────────────────────────────────
+# ── Version resolution ───────────────────────────────────────────────
 
 resolve_latest_version() {
-    case "${CORE_TYPE,,}" in
-        paper|folia) curl -fsSL "https://api.papermc.io/v3/projects/${CORE_TYPE,,}" | grep -o '"versions":[^]]*' | grep -o '"[^"]*"' | tail -1 | tr -d '"' ;;
-        purpur)      curl -fsSL "https://api.purpurmc.org/v2/purpur" | grep -o '"versions":[^]]*' | grep -o '"[^"]*"' | tail -1 | tr -d '"' ;;
-        *) log_err "Unknown CORE_TYPE: ${CORE_TYPE}"; exit 1 ;;
-    esac
-}
+    local core="${CORE_TYPE,,}"
+    local project="$core"
 
-# ── Build ─────────────────────────────────────────────────────────────
-
-resolve_build() {
-    local version="$1" core="${CORE_TYPE,,}"
     case "$core" in
         paper|folia)
             local resp
-            resp=$(curl -fsSL "https://api.papermc.io/v3/projects/${core}/versions/${version}/builds/latest") \
-                || { log_err "Failed to fetch build for ${core} ${version}"; exit 1; }
-            BUILD_NUMBER=$(echo "$resp" | grep -o '"build":[0-9]*' | sed 's/.*://')
-            local jar; jar=$(echo "$resp" | grep '"downloads"' -A 20 | grep '"application"' -A 10 | grep '"name"' | head -1 | sed 's/.*"name":"\([^"]*\)".*/\1/')
-            BUILD_ID="${core}-${version}-${BUILD_NUMBER}"
-            DOWNLOAD_URL="https://api.papermc.io/v3/projects/${core}/versions/${version}/builds/${BUILD_NUMBER}/downloads/${jar}"
+            resp=$(curl -fsSL "https://fill.papermc.io/v3/projects/${project}" 2>/dev/null) \
+                || { log_err "Failed to fetch ${project} versions"; exit 1; }
+            # v3 returns versions grouped: {"versions":{"1.21":["1.21.11",...],..}}
+            # First item in first array is the latest stable version
+            echo "$resp" | grep -o '\["[0-9][^]]*\]' | head -1 | grep -o '"[^"]*"' | head -1 | tr -d '"'
             ;;
         purpur)
             local resp
-            resp=$(curl -fsSL "https://api.purpurmc.org/v2/purpur/${version}/latest") \
-                || { log_err "Failed to fetch Purpur build for ${version}"; exit 1; }
-            BUILD_NUMBER=$(echo "$resp" | grep '"build"' -A 5 | grep '"build"' | grep -o '"build":[0-9]*' | sed 's/.*://' | tail -1)
-            BUILD_ID="purpur-${version}-${BUILD_NUMBER}"
-            DOWNLOAD_URL="https://api.purpurmc.org/v2/purpur/${version}/latest/download"
+            resp=$(curl -fsSL "https://api.purpurmc.org/v2/purpur" 2>/dev/null) \
+                || { log_err "Failed to fetch Purpur versions"; exit 1; }
+            echo "$resp" | grep -o '"versions":\[[^]]*\]' | grep -o '"[^"]*"' | tail -1 | tr -d '"'
             ;;
         *) log_err "Unknown CORE_TYPE: ${CORE_TYPE}"; exit 1 ;;
     esac
 }
 
-# ── Download ──────────────────────────────────────────────────────────
+# ── Build resolution ─────────────────────────────────────────────────
+
+resolve_build() {
+    local version="$1"
+    local core="${CORE_TYPE,,}"
+
+    case "$core" in
+        paper|folia)
+            local resp
+            resp=$(curl -fsSL "https://fill.papermc.io/v3/projects/${core}/versions/${version}/builds/latest" 2>/dev/null) \
+                || { log_err "Failed to fetch build for ${core} ${version}"; exit 1; }
+
+            BUILD_NUMBER=$(echo "$resp" | grep -o '"id":[0-9]*' | head -1 | sed 's/.*://')
+            [ -z "$BUILD_NUMBER" ] && { log_err "No build number found for ${core} ${version}"; exit 1; }
+
+            DOWNLOAD_URL=$(echo "$resp" | grep -o '"url":"https://fill-data[^"]*"' | head -1 | sed 's/.*"url":"\([^"]*\)".*/\1/')
+            [ -z "$DOWNLOAD_URL" ] && { log_err "No download URL found for ${core} ${version}"; exit 1; }
+
+            BUILD_ID="${core}-${version}-${BUILD_NUMBER}"
+            ;;
+        purpur)
+            local resp
+            resp=$(curl -fsSL "https://api.purpurmc.org/v2/purpur/${version}/latest" 2>/dev/null) \
+                || { log_err "Failed to fetch Purpur build for ${version}"; exit 1; }
+
+            BUILD_NUMBER=$(echo "$resp" | grep -o '"build":"[^"]*"' | head -1 | sed 's/.*"build":"\([^"]*\)".*/\1/')
+            [ -z "$BUILD_NUMBER" ] && { log_err "No Purpur build number found for ${version}"; exit 1; }
+
+            BUILD_ID="purpur-${version}-${BUILD_NUMBER}"
+            DOWNLOAD_URL="https://api.purpurmc.org/v2/purpur/${version}/${BUILD_NUMBER}/download"
+            ;;
+        *) log_err "Unknown CORE_TYPE: ${CORE_TYPE}"; exit 1 ;;
+    esac
+}
+
+# ── Download ─────────────────────────────────────────────────────────
 
 maybe_update() {
     if [ "${MINECRAFT_VERSION,,}" = "latest" ]; then
         MINECRAFT_VERSION=$(resolve_latest_version)
+        [ -z "$MINECRAFT_VERSION" ] && { log_err "Failed to resolve latest version"; exit 1; }
         log "Latest version: ${MINECRAFT_VERSION}"
     fi
 
     resolve_build "${MINECRAFT_VERSION}"
 
-    if [ -f "${BUILD_CACHE}" ] && [ -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ]; then
-        local cached; cached=$(cat "${BUILD_CACHE}")
-        if [ "${cached}" = "${BUILD_ID}" ]; then
+    local cache_file="${CACHE_DIR}/build_id"
+    if [ -f "$cache_file" ] && [ -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ]; then
+        local cached
+        cached=$(cat "$cache_file")
+        if [ "$cached" = "$BUILD_ID" ]; then
             log "Already up to date: ${BUILD_ID}."; return 0
         fi
-        log "Updating: ${cached} → ${BUILD_ID}"
+        log "Updating: ${cached} -> ${BUILD_ID}"
     else
         log "First download: ${BUILD_ID}"
     fi
@@ -103,7 +130,7 @@ maybe_update() {
     [ -f "${SERVER_JARFILE}" ] && cp "${SERVER_JARFILE}" "${SERVER_JARFILE}.bak"
 
     if curl -fsSL --progress-bar -o "${SERVER_JARFILE}" "${DOWNLOAD_URL}"; then
-        echo "${BUILD_ID}" > "${BUILD_CACHE}"
+        echo "${BUILD_ID}" > "$cache_file"
         rm -f "${SERVER_JARFILE}.bak"
         log "Downloaded: ${SERVER_JARFILE}"
     else
@@ -113,6 +140,15 @@ maybe_update() {
     fi
 }
 
+configure_velocity_forwarding() {
+    is_true "${VELOCITY_ENABLED}" || return 0
+    [ -z "${VELOCITY_SECRET}" ] && return 0
+
+    # Write forwarding.secret file (paper-global.yml is handled by Pterodactyl config parser)
+    echo "${VELOCITY_SECRET}" > "${CONTAINER_DIR}/forwarding.secret"
+    log "Velocity forwarding: forwarding.secret written."
+}
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 if is_true "${AUTO_UPDATE}"; then
@@ -120,8 +156,10 @@ if is_true "${AUTO_UPDATE}"; then
     maybe_update
 else
     log "AUTO_UPDATE: disabled."
-    [ ! -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ] && { log "JAR not found — downloading..."; maybe_update; }
+    [ ! -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ] && { log "JAR not found, downloading..."; maybe_update; }
 fi
+
+configure_velocity_forwarding
 
 log "Starting ${CORE_TYPE} ${MINECRAFT_VERSION}..."
 cd "${CONTAINER_DIR}" || exit 1
