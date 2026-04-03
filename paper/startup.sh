@@ -11,14 +11,14 @@ log()     { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log_err() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; }
 
 is_true() { case "${1,,}" in true|1|yes) return 0 ;; *) return 1 ;; esac }
-json_get() { python3 -c "import sys,json; d=json.load(sys.stdin); print($1)"; }
+json_get() { jq -r "$1" 2>/dev/null; }
 
 # ── Self-update ───────────────────────────────────────────────────────
 
 self_update() {
     local remote_sha
     remote_sha=$(curl -fsSL "https://api.github.com/repos/tensacraft/eggs/contents/${SCRIPT_SUBPATH}" \
-        | json_get "d['sha']" 2>/dev/null)
+        | json_get ".sha" 2>/dev/null)
     [ -z "$remote_sha" ] && { log "Self-update: GitHub unavailable, skipping."; return 0; }
 
     local current_sha
@@ -46,8 +46,8 @@ self_update "$@"
 
 resolve_latest_version() {
     case "${CORE_TYPE,,}" in
-        paper|folia) curl -fsSL "https://api.papermc.io/v3/projects/${CORE_TYPE,,}" | json_get "d['versions'][-1]" ;;
-        purpur)      curl -fsSL "https://api.purpurmc.org/v2/purpur" | json_get "d['versions'][-1]" ;;
+        paper|folia) curl -fsSL "https://api.papermc.io/v3/projects/${CORE_TYPE,,}" | json_get ".versions[-1]" ;;
+        purpur)      curl -fsSL "https://api.purpurmc.org/v2/purpur" | json_get ".versions[-1]" ;;
         *) log_err "Unknown CORE_TYPE: ${CORE_TYPE}"; exit 1 ;;
     esac
 }
@@ -61,8 +61,8 @@ resolve_build() {
             local resp
             resp=$(curl -fsSL "https://api.papermc.io/v3/projects/${core}/versions/${version}/builds/latest") \
                 || { log_err "Failed to fetch build for ${core} ${version}"; exit 1; }
-            BUILD_NUMBER=$(echo "$resp" | json_get "d['build']")
-            local jar; jar=$(echo "$resp" | json_get "d['downloads']['application']['name']")
+            BUILD_NUMBER=$(echo "$resp" | json_get ".build")
+            local jar; jar=$(echo "$resp" | json_get ".downloads.application.name")
             BUILD_ID="${core}-${version}-${BUILD_NUMBER}"
             DOWNLOAD_URL="https://api.papermc.io/v3/projects/${core}/versions/${version}/builds/${BUILD_NUMBER}/downloads/${jar}"
             ;;
@@ -70,7 +70,7 @@ resolve_build() {
             local resp
             resp=$(curl -fsSL "https://api.purpurmc.org/v2/purpur/${version}/latest") \
                 || { log_err "Failed to fetch Purpur build for ${version}"; exit 1; }
-            BUILD_NUMBER=$(echo "$resp" | json_get "d['build']['build']")
+            BUILD_NUMBER=$(echo "$resp" | json_get ".build.build")
             BUILD_ID="purpur-${version}-${BUILD_NUMBER}"
             DOWNLOAD_URL="https://api.purpurmc.org/v2/purpur/${version}/latest/download"
             ;;
