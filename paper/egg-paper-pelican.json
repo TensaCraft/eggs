@@ -18,7 +18,7 @@
   "file_denylist": [],
   "startup": "/bin/bash /home/container/startup.sh --enable-native-access=ALL-UNNAMED -Xms256M -XX:MaxRAMPercentage=95.0 -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1HeapRegionSize=8M -XX:G1HeapWastePercent=5 -XX:G1MaxNewSizePercent=40 -XX:G1MixedGCCountTarget=4 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1NewSizePercent=30 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:MaxGCPauseMillis=200 -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=32",
   "config": {
-    "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"query.port\": \"{{server.build.default.port}}\",\r\n            \"motd\": \"{{env.MOTD}}\",\r\n            \"max-players\": \"{{env.MAX_PLAYERS}}\",\r\n            \"online-mode\": \"{{env.ONLINE_MODE}}\",\r\n            \"difficulty\": \"{{env.DIFFICULTY}}\",\r\n            \"gamemode\": \"{{env.GAMEMODE}}\",\r\n            \"force-gamemode\": \"{{env.FORCE_GAMEMODE}}\",\r\n            \"pvp\": \"{{env.PVP}}\",\r\n            \"view-distance\": \"{{env.VIEW_DISTANCE}}\",\r\n            \"simulation-distance\": \"{{env.SIMULATION_DISTANCE}}\",\r\n            \"spawn-protection\": \"{{env.SPAWN_PROTECTION}}\",\r\n            \"allow-nether\": \"{{env.ALLOW_NETHER}}\",\r\n            \"enable-command-block\": \"{{env.ENABLE_COMMAND_BLOCK}}\",\r\n            \"enable-rcon\": \"{{env.RCON_ENABLE}}\",\r\n            \"rcon.port\": \"{{env.RCON_PORT}}\",\r\n            \"rcon.password\": \"{{env.RCON_PASSWORD}}\"\r\n        }\r\n    },\r\n    \"config/paper-global.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"proxies.velocity.enabled\": \"{{env.VELOCITY_ENABLED}}\",\r\n            \"proxies.velocity.secret\": \"{{env.VELOCITY_SECRET}}\"\r\n        }\r\n    },\r\n    \"eula.txt\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"eula\": \"true\"\r\n        }\r\n    }\r\n}",
+    "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"query.port\": \"{{server.build.default.port}}\",\r\n            \"motd\": \"{{env.MOTD}}\",\r\n            \"max-players\": \"{{env.MAX_PLAYERS}}\",\r\n            \"online-mode\": \"{{env.ONLINE_MODE}}\",\r\n            \"difficulty\": \"{{env.DIFFICULTY}}\",\r\n            \"gamemode\": \"{{env.GAMEMODE}}\",\r\n            \"force-gamemode\": \"{{env.FORCE_GAMEMODE}}\",\r\n            \"pvp\": \"{{env.PVP}}\",\r\n            \"view-distance\": \"{{env.VIEW_DISTANCE}}\",\r\n            \"simulation-distance\": \"{{env.SIMULATION_DISTANCE}}\",\r\n            \"spawn-protection\": \"{{env.SPAWN_PROTECTION}}\",\r\n            \"allow-nether\": \"{{env.ALLOW_NETHER}}\",\r\n            \"enable-command-block\": \"{{env.ENABLE_COMMAND_BLOCK}}\",\r\n            \"enable-rcon\": \"{{env.RCON_ENABLE}}\",\r\n            \"rcon.port\": \"{{env.RCON_PORT}}\",\r\n            \"rcon.password\": \"{{env.RCON_PASSWORD}}\"\r\n        }\r\n    },\r\n    \"config/paper-global.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"proxies.velocity.enabled\": \"{{env.VELOCITY_ENABLED}}\",\r\n            \"proxies.velocity.secret\": \"{{env.VELOCITY_SECRET}}\",\r\n            \"unsupported-settings.allow-headless-pistons\": \"{{env.ALLOW_HEADLESS_PISTONS}}\",\r\n            \"unsupported-settings.allow-permanent-block-break-exploits\": \"{{env.ALLOW_BLOCK_BREAK_EXPLOITS}}\",\r\n            \"unsupported-settings.allow-piston-duplication\": \"{{env.ALLOW_PISTON_DUPLICATION}}\",\r\n            \"unsupported-settings.allow-unsafe-end-portal-teleportation\": \"{{env.ALLOW_UNSAFE_END_PORTAL_TP}}\",\r\n            \"unsupported-settings.compression-format\": \"{{env.COMPRESSION_FORMAT}}\",\r\n            \"unsupported-settings.perform-username-validation\": \"{{env.PERFORM_USERNAME_VALIDATION}}\",\r\n            \"unsupported-settings.simplify-remote-item-matching\": \"{{env.SIMPLIFY_REMOTE_ITEM_MATCHING}}\",\r\n            \"unsupported-settings.skip-tripwire-hook-placement-validation\": \"{{env.SKIP_TRIPWIRE_VALIDATION}}\",\r\n            \"unsupported-settings.skip-vanilla-damage-tick-when-shield-blocked\": \"{{env.SKIP_SHIELD_DAMAGE_TICK}}\",\r\n            \"unsupported-settings.update-equipment-on-player-actions\": \"{{env.UPDATE_EQUIPMENT_ON_ACTIONS}}\"\r\n        }\r\n    },\r\n    \"spigot.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"world-settings.default.max-tnt-per-tick\": \"{{env.MAX_TNT_PER_TICK}}\"\r\n        }\r\n    },\r\n    \"config/paper-world-defaults.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"anticheat.anti-xray.enabled\": \"{{env.ANTI_XRAY_ENABLED}}\",\r\n            \"anticheat.anti-xray.engine-mode\": \"{{env.ANTI_XRAY_ENGINE_MODE}}\"\r\n        }\r\n    },\r\n    \"eula.txt\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"eula\": \"true\"\r\n        }\r\n    }\r\n}",
     "startup": "{\"done\": \")! For help, type \"}",
     "logs": "{}",
     "stop": "stop"
@@ -239,6 +239,136 @@
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string|max:256",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Headless Pistons",
+      "description": "Allow headless piston exploit (vanilla mechanic). Used for TNT duplication farms and other redstone contraptions that rely on headless pistons. Paper patches this by default — enable to restore vanilla behavior",
+      "env_variable": "ALLOW_HEADLESS_PISTONS",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Block Break Exploits",
+      "description": "Allow permanent block break exploits (vanilla mechanic). Enables bedrock, end portal frame, and other 'unbreakable' block removal using glitches. Paper patches this by default — enable to restore vanilla behavior",
+      "env_variable": "ALLOW_BLOCK_BREAK_EXPLOITS",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Piston Duplication",
+      "description": "Allow piston-based duplication (vanilla mechanic). Enables TNT and carpet duplication via pistons — widely used in farms and technical Minecraft. Paper patches this by default — enable to restore vanilla behavior",
+      "env_variable": "ALLOW_PISTON_DUPLICATION",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Unsafe End Portal TP",
+      "description": "Allow unsafe end portal teleportation. When enabled, allows placing end portals that teleport players to coordinates outside the world border, which can cause lag or crashes. Keep disabled for safety",
+      "env_variable": "ALLOW_UNSAFE_END_PORTAL_TP",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Compression Format",
+      "description": "Chunk data compression format. ZLIB is the standard default. LZ4 is faster but uses more disk space. NONE disables compression (fastest, largest files). Only change if you know what you're doing",
+      "env_variable": "COMPRESSION_FORMAT",
+      "default_value": "ZLIB",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:ZLIB,LZ4,NONE",
+      "field_type": "text"
+    },
+    {
+      "name": "Username Validation",
+      "description": "Validate player usernames against Mojang format rules. Disable only if you use a proxy with offline-mode players that have non-standard names (e.g. Bedrock players via Geyser with . prefix)",
+      "env_variable": "PERFORM_USERNAME_VALIDATION",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Simplify Remote Item Matching",
+      "description": "Simplify item matching logic for villager trades and other inventory checks. May improve performance slightly but can cause subtle item comparison differences. Keep disabled unless you have performance issues",
+      "env_variable": "SIMPLIFY_REMOTE_ITEM_MATCHING",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Skip Tripwire Validation",
+      "description": "Skip validation when placing tripwire hooks. Enabling this can allow invalid tripwire placements that may cause issues. Keep disabled unless needed for specific builds",
+      "env_variable": "SKIP_TRIPWIRE_VALIDATION",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Skip Shield Damage Tick",
+      "description": "Skip the vanilla damage tick when damage is blocked by a shield. Enabling this changes PvP combat behavior — shields will no longer apply damage immunity frames when blocking. Keep disabled for vanilla combat",
+      "env_variable": "SKIP_SHIELD_DAMAGE_TICK",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Update Equipment on Actions",
+      "description": "Send equipment update packets when players perform actions (e.g. swapping items). Disabling may save bandwidth but causes visual desyncs for other players. Keep enabled for correct behavior",
+      "env_variable": "UPDATE_EQUIPMENT_ON_ACTIONS",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Max TNT Per Tick",
+      "description": "Maximum TNT explosions processed per tick (spigot.yml). Set to -1 for unlimited (vanilla behavior) — required for large TNT cannons and quarries. Default Spigot value is 100 which limits TNT farms",
+      "env_variable": "MAX_TNT_PER_TICK",
+      "default_value": "-1",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:-1|max:10000",
+      "field_type": "text"
+    },
+    {
+      "name": "Anti-Xray",
+      "description": "Enable Paper anti-xray system. Hides ore positions from x-ray clients/mods by sending fake block data. Recommended to keep enabled on survival servers to prevent cheating",
+      "env_variable": "ANTI_XRAY_ENABLED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Anti-Xray Engine Mode",
+      "description": "Anti-xray engine mode. Mode 1: replaces ore blocks with stone (lightweight, less secure). Mode 2: replaces all blocks with random ores (heavier on bandwidth, much more secure — x-ray users see fake ores everywhere). Mode 2 is recommended for best protection",
+      "env_variable": "ANTI_XRAY_ENGINE_MODE",
+      "default_value": "2",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:1,2",
       "field_type": "text"
     }
   ]
