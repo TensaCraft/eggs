@@ -5,7 +5,7 @@
     "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/rust/egg-rust-auto-wipe.json"
   },
   "name": "Rust Auto Wipe",
-  "author": "GIGABAIT",
+  "author": "xgigabaitx@gmail.com",
   "description": "Advanced Rust egg based on All In One style startup with map rotation, cron-priority wipes, and automatic restart cleanup.",
   "features": ["steam_disk_space"],
   "docker_images": {
