@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_SLUG="${REPO_SLUG:-tensacraft/eggs}"
+SCRIPT_SUBPATH="rust/startup.sh"
+CONFIG_DEFAULTS_SUBPATH="rust/config.defaults.sh"
+CONFIG_TEMPLATE_SUBPATH="rust/config.sh"
+
+RUNTIME_WIPE_CRON_SCHEDULES=()
+RUNTIME_WIPE_MAPS=()
+RUNTIME_WIPE_REMOVE_PATTERNS=()
+RUNTIME_WIPE_IGNORE_PATTERNS=()
+RUNTIME_CLEAN_FILES_ON_RESTART=()
+RUNTIME_CLEAN_IGNORE_PATTERNS=()
+START_COMMAND=()
+START_COMMAND_STRING=""
+
 log() {
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $*"
 }
@@ -19,7 +33,360 @@ split_by() {
   IFS="$delimiter" read -r -a out_ref <<<"$input"
 }
 
+var_is_array() {
+  local name="$1"
+  local declaration
+  declaration="$(declare -p "$name" 2>/dev/null || true)"
+  [[ "$declaration" == "declare -a"* ]]
+}
+
+container_dir() {
+  printf '%s' "${CONTAINER_DIR:-/home/container}"
+}
+
+cache_dir() {
+  printf '%s/.cache' "$(container_dir)"
+}
+
+cache_file() {
+  local name="$1"
+  printf '%s/%s' "$(cache_dir)" "$name"
+}
+
+github_raw_url() {
+  local subpath="$1"
+  printf 'https://raw.githubusercontent.com/%s/main/%s' "$REPO_SLUG" "$subpath"
+}
+
+github_contents_url() {
+  local subpath="$1"
+  printf 'https://api.github.com/repos/%s/contents/%s' "$REPO_SLUG" "$subpath"
+}
+
+ensure_cache_dir() {
+  mkdir -p "$(cache_dir)"
+}
+
+github_file_sha() {
+  local subpath="$1"
+  curl -fsSL "$(github_contents_url "$subpath")" 2>/dev/null \
+    | grep -o '"sha":"[^"]*"' \
+    | head -n1 \
+    | sed 's/.*"sha":"\([^"]*\)".*/\1/'
+}
+
+download_github_file() {
+  local subpath="$1"
+  local destination="$2"
+  curl -fsSL "$(github_raw_url "$subpath")" -o "$destination"
+}
+
+maybe_update_managed_file() {
+  local subpath="$1"
+  local destination="$2"
+  local sha_cache_name="$3"
+  local destination_mode="${4:-644}"
+
+  ensure_cache_dir
+
+  local remote_sha
+  remote_sha="$(github_file_sha "$subpath")"
+  if [[ -z "$remote_sha" ]]; then
+    log "Managed update skipped for ${subpath}: GitHub unavailable."
+    return 1
+  fi
+
+  local sha_path
+  sha_path="$(cache_file "$sha_cache_name")"
+
+  local current_sha=""
+  if [[ -f "$sha_path" ]]; then
+    current_sha="$(cat "$sha_path")"
+  fi
+
+  if [[ "$current_sha" == "$remote_sha" && -f "$destination" ]]; then
+    return 2
+  fi
+
+  local temp_path="${destination}.new"
+  if ! download_github_file "$subpath" "$temp_path"; then
+    rm -f "$temp_path"
+    log "Managed update failed for ${subpath}; keeping current file."
+    return 1
+  fi
+
+  mv "$temp_path" "$destination"
+  chmod "$destination_mode" "$destination"
+  printf '%s' "$remote_sha" > "$sha_path"
+  return 0
+}
+
+bootstrap_user_config() {
+  local destination
+  destination="$(container_dir)/config.sh"
+  if [[ -f "$destination" ]]; then
+    return
+  fi
+
+  log "config.sh missing; bootstrapping from GitHub template."
+  if download_github_file "$CONFIG_TEMPLATE_SUBPATH" "$destination"; then
+    chmod 644 "$destination"
+  else
+    rm -f "$destination"
+    log "Bootstrap of config.sh failed; continuing without a user config."
+  fi
+}
+
+self_update_startup() {
+  local destination
+  destination="$(container_dir)/startup.sh"
+  mkdir -p "$(container_dir)"
+
+  if maybe_update_managed_file "$SCRIPT_SUBPATH" "$destination" "startup_sha" 755; then
+    log "startup.sh updated from GitHub. Restarting into the new version."
+    exec bash "$destination" "$@"
+  fi
+}
+
+update_managed_defaults() {
+  local destination
+  destination="$(container_dir)/config.defaults.sh"
+  mkdir -p "$(container_dir)"
+
+  if maybe_update_managed_file "$CONFIG_DEFAULTS_SUBPATH" "$destination" "config_defaults_sha" 644; then
+    log "config.defaults.sh updated from GitHub."
+  fi
+}
+
+normalize_list() {
+  local out_name="$1"
+  shift
+
+  local -n out_ref="$out_name"
+  out_ref=()
+
+  local item
+  for item in "$@"; do
+    item="$(trim "$item")"
+    [[ -n "$item" ]] || continue
+    out_ref+=("$item")
+  done
+}
+
+parse_scalar_list() {
+  local input="$1"
+  local delimiter="$2"
+  local out_name="$3"
+
+  local parts=()
+  if [[ -n "$input" ]]; then
+    split_by "$input" "$delimiter" parts
+  fi
+  normalize_list "$out_name" "${parts[@]}"
+}
+
+resolve_string_or_array() {
+  local out_name="$1"
+  local variable_name="$2"
+  local delimiter="$3"
+  shift 3
+  local defaults=("$@")
+
+  local resolved=()
+  if var_is_array "$variable_name"; then
+    local -n source_ref="$variable_name"
+    resolved=("${source_ref[@]}")
+  else
+    local scalar_value="${!variable_name:-}"
+    if [[ -n "$scalar_value" ]]; then
+      parse_scalar_list "$scalar_value" "$delimiter" resolved
+    else
+      resolved=("${defaults[@]}")
+    fi
+  fi
+
+  normalize_list "$out_name" "${resolved[@]}"
+}
+
+default_wipe_patterns() {
+  local out_name="$1"
+  local identity="${SERVER_IDENTITY:-rust}"
+  local defaults=(
+    "server/${identity}/*.map"
+    "server/${identity}/*.sav"
+    "server/${identity}/*.sav.*"
+    "server/${identity}/player.deaths*.db*"
+    "server/${identity}/player.identities*.db*"
+    "server/${identity}/player.states*.db*"
+    "server/${identity}/player.blueprints*.db*"
+    "server/${identity}/player.tokens*.db*"
+    "server/${identity}/sv.files*"
+  )
+  local -n out_ref="$out_name"
+  out_ref=("${defaults[@]}")
+}
+
+default_cleanup_patterns() {
+  local out_name="$1"
+  local defaults=(
+    "logs/*.old"
+    "logs/*.tmp"
+    "logs/*.log.old"
+    "crash/*.dmp"
+    "RustDedicated_Data/CrashReports/*"
+    "oxide/logs/*"
+    "carbon/logs/*"
+  )
+  local -n out_ref="$out_name"
+  out_ref=("${defaults[@]}")
+}
+
+resolve_runtime_config() {
+  resolve_string_or_array RUNTIME_WIPE_CRON_SCHEDULES "WIPE_CRON_SCHEDULES" ';' "0 4 * * 4|50|weekly"
+  resolve_string_or_array RUNTIME_WIPE_MAPS "WIPE_MAPS" ';'
+  if (( ${#RUNTIME_WIPE_MAPS[@]} == 0 )); then
+    if [[ -n "${WIPE_MAP_LIST:-}" ]]; then
+      parse_scalar_list "${WIPE_MAP_LIST}" ';' RUNTIME_WIPE_MAPS
+    else
+      RUNTIME_WIPE_MAPS=("Procedural Map|3500|0" "Procedural Map|4000|0")
+    fi
+  fi
+
+  if var_is_array "WIPE_REMOVE_PATTERNS"; then
+    local -n wipe_remove_ref="WIPE_REMOVE_PATTERNS"
+    normalize_list RUNTIME_WIPE_REMOVE_PATTERNS "${wipe_remove_ref[@]}"
+  else
+    local legacy_wipe_items=()
+    if [[ -n "${WIPE_REMOVE_FILES:-}" ]]; then
+      local base_items=()
+      parse_scalar_list "${WIPE_REMOVE_FILES}" ';' base_items
+      legacy_wipe_items+=("${base_items[@]}")
+    fi
+    if [[ -n "${WIPE_REMOVE_PATTERNS:-}" ]]; then
+      local extra_items=()
+      parse_scalar_list "${WIPE_REMOVE_PATTERNS}" ';' extra_items
+      legacy_wipe_items+=("${extra_items[@]}")
+    fi
+    if (( ${#legacy_wipe_items[@]} == 0 )); then
+      default_wipe_patterns RUNTIME_WIPE_REMOVE_PATTERNS
+    else
+      normalize_list RUNTIME_WIPE_REMOVE_PATTERNS "${legacy_wipe_items[@]}"
+    fi
+  fi
+
+  resolve_string_or_array RUNTIME_WIPE_IGNORE_PATTERNS "WIPE_IGNORE_PATTERNS" ';'
+
+  if var_is_array "CLEAN_FILES_ON_RESTART"; then
+    local -n cleanup_ref="CLEAN_FILES_ON_RESTART"
+    normalize_list RUNTIME_CLEAN_FILES_ON_RESTART "${cleanup_ref[@]}"
+  else
+    local cleanup_scalar="${CLEAN_FILES_ON_RESTART:-}"
+    if [[ -n "$cleanup_scalar" ]]; then
+      parse_scalar_list "$cleanup_scalar" ';' RUNTIME_CLEAN_FILES_ON_RESTART
+    else
+      default_cleanup_patterns RUNTIME_CLEAN_FILES_ON_RESTART
+    fi
+  fi
+
+  resolve_string_or_array RUNTIME_CLEAN_IGNORE_PATTERNS "CLEAN_IGNORE_PATTERNS" ';'
+}
+
+load_layered_config() {
+  local defaults_path
+  defaults_path="$(container_dir)/config.defaults.sh"
+  local user_path
+  user_path="$(container_dir)/config.sh"
+
+  if [[ -f "$defaults_path" ]]; then
+    # shellcheck disable=SC1090
+    source "$defaults_path"
+  fi
+
+  if [[ -f "$user_path" ]]; then
+    # shellcheck disable=SC1090
+    source "$user_path"
+  fi
+
+  resolve_runtime_config
+}
+
+path_matches_any() {
+  local candidate="$1"
+  shift || true
+
+  local pattern
+  for pattern in "$@"; do
+    [[ -n "$pattern" ]] || continue
+    if [[ "$candidate" == $pattern ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+expand_patterns_to_matches() {
+  local out_name="$1"
+  shift
+
+  local -n out_ref="$out_name"
+  out_ref=()
+
+  local -A seen=()
+  local pattern
+  for pattern in "$@"; do
+    pattern="$(trim "$pattern")"
+    [[ -n "$pattern" ]] || continue
+
+    local match
+    while IFS= read -r match; do
+      [[ -n "$match" ]] || continue
+      if [[ -z "${seen[$match]+x}" ]]; then
+        out_ref+=("$match")
+        seen[$match]=1
+      fi
+    done < <(
+      shopt -s nullglob globstar
+      compgen -G "$pattern" || true
+      shopt -u nullglob globstar
+    )
+  done
+}
+
+remove_matching_paths() {
+  local label="$1"
+  local remove_array_name="$2"
+  local ignore_array_name="$3"
+
+  local -n remove_ref="$remove_array_name"
+  local -n ignore_ref="$ignore_array_name"
+
+  local matches=()
+  expand_patterns_to_matches matches "${remove_ref[@]}"
+
+  local to_remove=()
+  local path
+  for path in "${matches[@]}"; do
+    if path_matches_any "$path" "${ignore_ref[@]}"; then
+      log "${label}: keeping protected path '$path'"
+      continue
+    fi
+    to_remove+=("$path")
+  done
+
+  if (( ${#to_remove[@]} == 0 )); then
+    return
+  fi
+
+  log "${label}: removing ${#to_remove[@]} path(s)"
+  rm -rf -- "${to_remove[@]}"
+}
+
 ensure_seed_file() {
+  if [[ -n "${MAP_URL:-}" ]]; then
+    return
+  fi
+
   if [[ "${WORLD_SEED:-0}" == "0" ]]; then
     if [[ -f seed.txt ]]; then
       WORLD_SEED="$(cat seed.txt)"
@@ -31,35 +398,21 @@ ensure_seed_file() {
 }
 
 apply_cleanup() {
+  resolve_runtime_config
+
   if [[ "${CLEAN_EACH_RESTART:-1}" != "1" ]]; then
     return
   fi
 
-  local files_raw="${CLEAN_FILES_ON_RESTART:-logs/*.old;logs/*.tmp;crash/*.dmp;RustDedicated_Data/CrashReports/*}"
-  local files=()
-  split_by "$files_raw" ';' files
-
-  for pattern in "${files[@]}"; do
-    pattern="$(trim "$pattern")"
-    [[ -z "$pattern" ]] && continue
-    shopt -s nullglob
-    local matches=( $pattern )
-    shopt -u nullglob
-    if (( ${#matches[@]} > 0 )); then
-      log "Restart cleanup: removing '$pattern'"
-      rm -rf -- $pattern
-    fi
-  done
+  remove_matching_paths "Restart cleanup" RUNTIME_CLEAN_FILES_ON_RESTART RUNTIME_CLEAN_IGNORE_PATTERNS
 }
 
 select_next_map() {
-  local mode="${MAP_ROTATION_MODE:-sequential}"
-  local maps_raw="${WIPE_MAP_LIST:-Procedural Map|3500|0}"
-  local state_file=".wipe_state"
+  resolve_runtime_config
 
-  local map_defs=()
-  split_by "$maps_raw" ';' map_defs
-  local map_count="${#map_defs[@]}"
+  local mode="${MAP_ROTATION_MODE:-sequential}"
+  local state_file=".wipe_state"
+  local map_count="${#RUNTIME_WIPE_MAPS[@]}"
   (( map_count == 0 )) && return
 
   local next_index=0
@@ -74,56 +427,51 @@ select_next_map() {
     next_index=$(( (last_index + 1) % map_count ))
   fi
 
-  local chosen="$(trim "${map_defs[$next_index]}")"
+  local chosen
+  chosen="$(trim "${RUNTIME_WIPE_MAPS[$next_index]}")"
   local parts=()
   split_by "$chosen" '|' parts
 
-  local level="${parts[0]:-Procedural Map}"
-  local size="${parts[1]:-${WORLD_SIZE:-3500}}"
-  local seed="${parts[2]:-0}"
+  local first_field
+  first_field="$(trim "${parts[0]:-Procedural Map}")"
+  local size
+  size="$(trim "${parts[1]:-${WORLD_SIZE:-3500}}")"
+  local seed
+  seed="$(trim "${parts[2]:-0}")"
 
-  LEVEL="$(trim "$level")"
-  WORLD_SIZE="$(trim "$size")"
-  WORLD_SEED="$(trim "$seed")"
+  [[ -z "$size" ]] && size="3500"
+  [[ -z "$seed" ]] && seed="0"
 
-  [[ -z "$LEVEL" ]] && LEVEL="Procedural Map"
-  [[ -z "$WORLD_SIZE" ]] && WORLD_SIZE="3500"
-  [[ -z "$WORLD_SEED" ]] && WORLD_SEED="0"
+  if [[ "$first_field" == http://* || "$first_field" == https://* ]]; then
+    MAP_URL="$first_field"
+    LEVEL=""
+    WORLD_SIZE="$size"
+    WORLD_SEED="$seed"
+    log "Map rotation selected URL map: url='$MAP_URL'"
+  else
+    MAP_URL=""
+    LEVEL="$first_field"
+    WORLD_SIZE="$size"
+    WORLD_SEED="$seed"
+    [[ -z "$LEVEL" ]] && LEVEL="Procedural Map"
+    log "Map rotation selected: level='$LEVEL', size='$WORLD_SIZE', seed='$WORLD_SEED'"
+  fi
 
   {
     if [[ -f "$state_file" ]]; then
       grep -vE '^LAST_MAP_INDEX=' "$state_file" || true
     fi
     echo "LAST_MAP_INDEX=$next_index"
-  } > "$state_file.tmp"
-  mv "$state_file.tmp" "$state_file"
-
-  log "Map rotation selected: level='$LEVEL', size='$WORLD_SIZE', seed='$WORLD_SEED'"
+  } > "${state_file}.tmp"
+  mv "${state_file}.tmp" "$state_file"
 }
 
 apply_wipe() {
-  local files_raw="${WIPE_REMOVE_FILES:-server/${SERVER_IDENTITY:-rust}/*.map;server/${SERVER_IDENTITY:-rust}/*.sav;server/${SERVER_IDENTITY:-rust}/*.sav.*;server/${SERVER_IDENTITY:-rust}/player.deaths*.db;server/${SERVER_IDENTITY:-rust}/player.identities*.db;server/${SERVER_IDENTITY:-rust}/player.states*.db;server/${SERVER_IDENTITY:-rust}/player.blueprints*.db;oxide/data/*.json;carbon/data/*.json}"
-  local file_patterns="${WIPE_REMOVE_PATTERNS:-}"
-  if [[ -n "$file_patterns" ]]; then
-    files_raw="${files_raw};${file_patterns}"
-  fi
-  local files=()
-  split_by "$files_raw" ';' files
+  resolve_runtime_config
 
-  for pattern in "${files[@]}"; do
-    pattern="$(trim "$pattern")"
-    [[ -z "$pattern" ]] && continue
-    shopt -s nullglob
-    local matches=( $pattern )
-    shopt -u nullglob
-    if (( ${#matches[@]} > 0 )); then
-      log "Wipe cleanup: removing '$pattern'"
-      rm -rf -- $pattern
-    fi
-  done
+  remove_matching_paths "Wipe cleanup" RUNTIME_WIPE_REMOVE_PATTERNS RUNTIME_WIPE_IGNORE_PATTERNS
 
-  local reset_seed="${WIPE_RESET_SEED:-1}"
-  if [[ "$reset_seed" == "1" ]]; then
+  if [[ "${WIPE_RESET_SEED:-1}" == "1" ]]; then
     WORLD_SEED="$((RANDOM<<16 | RANDOM))"
     printf '%s' "$WORLD_SEED" > seed.txt
     log "Generated a new world seed: $WORLD_SEED"
@@ -255,25 +603,23 @@ cron_due() {
 }
 
 run_wipe_scheduler() {
+  resolve_runtime_config
+
   if [[ "${AUTO_WIPE_ENABLED:-0}" != "1" ]]; then
     return
   fi
 
-  local schedules_raw="${WIPE_CRON_SCHEDULES:-0 4 * * 4|50|weekly}"
   local now_minute
   now_minute="$(date -u '+%Y-%m-%dT%H:%M')"
   local state_file=".wipe_state"
 
-  local entries=()
-  split_by "$schedules_raw" ';' entries
-
   local best_priority=-999999
   local best_label=""
   local matched=0
-
-  for entry in "${entries[@]}"; do
+  local entry
+  for entry in "${RUNTIME_WIPE_CRON_SCHEDULES[@]}"; do
     entry="$(trim "$entry")"
-    [[ -z "$entry" ]] && continue
+    [[ -n "$entry" ]] || continue
 
     local parts=()
     split_by "$entry" '|' parts
@@ -310,8 +656,8 @@ run_wipe_scheduler() {
       grep -vE '^LAST_WIPE_MINUTE=' "$state_file" || true
     fi
     echo "LAST_WIPE_MINUTE=$now_minute"
-  } > "$state_file.tmp"
-  mv "$state_file.tmp" "$state_file"
+  } > "${state_file}.tmp"
+  mv "${state_file}.tmp" "$state_file"
 }
 
 build_framework_flag() {
@@ -328,28 +674,76 @@ build_framework_flag() {
   esac
 }
 
+append_additional_args() {
+  local raw_args="${ADDITIONAL_ARGS:-}"
+  [[ -n "$raw_args" ]] || return 0
+
+  local parsed_args=()
+  read -r -a parsed_args <<<"$raw_args"
+  if (( ${#parsed_args[@]} > 0 )); then
+    START_COMMAND+=("${parsed_args[@]}")
+  fi
+}
+
+build_start_command() {
+  local framework_flag
+  framework_flag="$(build_framework_flag)"
+
+  START_COMMAND=(
+    "./RustDedicated"
+    "-batchmode"
+    "+server.port" "${SERVER_PORT}"
+    "+server.queryport" "${QUERY_PORT}"
+    "+server.identity" "${SERVER_IDENTITY:-rust}"
+    "+rcon.ip" "0.0.0.0"
+    "+rcon.port" "${RCON_PORT}"
+    "+rcon.web" "true"
+    "+server.hostname" "${HOSTNAME}"
+    "+server.description" "${DESCRIPTION}"
+    "+server.url" "${SERVER_URL:-}"
+    "+server.headerimage" "${SERVER_IMG:-}"
+    "+server.maxplayers" "${MAX_PLAYERS}"
+    "+rcon.password" "${RCON_PASS}"
+    "+app.port" "${APP_PORT}"
+    "+server.saveinterval" "${SAVEINTERVAL}"
+  )
+
+  if [[ -n "${MAP_URL:-}" ]]; then
+    START_COMMAND+=("+server.levelurl" "${MAP_URL}")
+  else
+    START_COMMAND+=(
+      "+server.level" "${LEVEL:-Procedural Map}"
+      "+server.worldsize" "${WORLD_SIZE:-3500}"
+      "+server.seed" "${WORLD_SEED:-0}"
+    )
+  fi
+
+  if [[ -n "$framework_flag" ]]; then
+    START_COMMAND+=("$framework_flag")
+  fi
+
+  append_additional_args
+  START_COMMAND_STRING="$(printf '%s ' "${START_COMMAND[@]}")"
+}
+
 main() {
-  cd /home/container || exit 1
+  mkdir -p "$(container_dir)"
+  cd "$(container_dir)" || exit 1
+
+  self_update_startup "$@"
+  update_managed_defaults
+  bootstrap_user_config
+  load_layered_config
 
   apply_cleanup
   run_wipe_scheduler
   ensure_seed_file
-
-  local map_args
-  if [[ -n "${MAP_URL:-}" ]]; then
-    map_args="+server.levelurl ${MAP_URL}"
-  else
-    map_args="+server.level \"${LEVEL:-Procedural Map}\" +server.worldsize \"${WORLD_SIZE:-3500}\" +server.seed \"${WORLD_SEED:-0}\""
-  fi
-
-  local framework_flag
-  framework_flag="$(build_framework_flag)"
-
-  local cmd
-  cmd="./RustDedicated -batchmode +server.port ${SERVER_PORT} +server.queryport ${QUERY_PORT} +server.identity \"${SERVER_IDENTITY:-rust}\" +rcon.ip 0.0.0.0 +rcon.port ${RCON_PORT} +rcon.web true +server.hostname \"${HOSTNAME}\" +server.description \"${DESCRIPTION}\" +server.url \"${SERVER_URL}\" +server.headerimage \"${SERVER_IMG}\" +server.maxplayers ${MAX_PLAYERS} +rcon.password \"${RCON_PASS}\" +app.port ${APP_PORT} +server.saveinterval ${SAVEINTERVAL} ${map_args} ${framework_flag} ${ADDITIONAL_ARGS:-}"
+  build_start_command
 
   log "Starting Rust server"
-  eval "exec ${cmd}"
+  exec "${START_COMMAND[@]}"
 }
 
-main "$@"
+if [[ "${EGG_STARTUP_TEST_MODE:-0}" != "1" ]]; then
+  main "$@"
+fi
