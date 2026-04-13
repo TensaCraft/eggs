@@ -9,9 +9,9 @@ The egg now uses two shell config files inside the server directory:
 - `config.defaults.sh`
 - `config.sh`
 
-`config.defaults.sh` is the managed defaults layer. `startup.sh` can auto-update it from GitHub.
+`config.defaults.sh` is the managed defaults layer stored in GitHub. `startup.sh` can auto-update it from GitHub.
 
-`config.sh` is the user-owned override layer. It is bootstrapped once if missing and is never overwritten automatically.
+`config.sh` is the user-owned override layer. It is created on the server from `config.defaults.sh` if missing and is never stored in this repository or overwritten automatically.
 
 Load order:
 
@@ -20,6 +20,7 @@ Load order:
 
 This gives you:
 
+- one managed config file in GitHub
 - updatable defaults from GitHub
 - local overrides that survive updates
 - readable arrays and comments instead of long panel text fields
@@ -182,9 +183,9 @@ After that, `startup.sh` can self-update from GitHub on future boots.
 
 ### Config files
 
-`config.defaults.sh` is managed and may update from GitHub.
+`config.defaults.sh` is the only config file stored in GitHub and may update from GitHub.
 
-`config.sh` is bootstrapped only if missing. It is not auto-overwritten.
+`config.sh` is created only on the server if missing by copying `config.defaults.sh`. It is not auto-overwritten and does not need to exist in the repository.
 
 This means new defaults can appear over time without destroying local edits.
 

@@ -6,7 +6,7 @@
   },
   "name": "Rust Auto Wipe",
   "author": "xgigabaitx@gmail.com",
-  "description": "Advanced Rust egg with layered config.sh/config.defaults.sh, map rotation, cron-priority wipes, and automatic restart cleanup.",
+  "description": "Advanced Rust egg with Git-managed config.defaults.sh, server-local config.sh overrides, map rotation, cron-priority wipes, and automatic restart cleanup.",
   "features": ["steam_disk_space"],
   "docker_images": {
     "Rust": "ghcr.io/pterodactyl/games:rust"
@@ -21,7 +21,7 @@
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\nset -e\nif [[ \"${STEAM_USER}\" == \"\" ]] || [[ \"${STEAM_PASS}\" == \"\" ]]; then\n  STEAM_USER=anonymous\n  STEAM_PASS=\"\"\n  STEAM_AUTH=\"\"\nfi\ncd /tmp\nmkdir -p /mnt/server/steamcmd\ncurl -sSL -o steamcmd.tar.gz https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz\ntar -xzvf steamcmd.tar.gz -C /mnt/server/steamcmd\nmkdir -p /mnt/server/steamapps\ncd /mnt/server/steamcmd\nchown -R root:root /mnt\nexport HOME=/mnt/server\n./steamcmd.sh +force_install_dir /mnt/server +login ${STEAM_USER} ${STEAM_PASS} ${STEAM_AUTH} +app_update ${SRCDS_APPID} ${INSTALL_FLAGS} validate +quit\nmkdir -p /mnt/server/.steam/sdk32\ncp -v linux32/steamclient.so /mnt/server/.steam/sdk32/steamclient.so\nmkdir -p /mnt/server/.steam/sdk64\ncp -v linux64/steamclient.so /mnt/server/.steam/sdk64/steamclient.so\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/rust/startup.sh\" -o /mnt/server/startup.sh\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/rust/config.defaults.sh\" -o /mnt/server/config.defaults.sh\nif [[ ! -f /mnt/server/config.sh ]]; then\n  curl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/rust/config.sh\" -o /mnt/server/config.sh\nfi\nchmod +x /mnt/server/startup.sh\nchmod 644 /mnt/server/config.defaults.sh\nif [[ -f /mnt/server/config.sh ]]; then\n  chmod 644 /mnt/server/config.sh\nfi\n",
+      "script": "#!/bin/bash\nset -e\nif [[ \"${STEAM_USER}\" == \"\" ]] || [[ \"${STEAM_PASS}\" == \"\" ]]; then\n  STEAM_USER=anonymous\n  STEAM_PASS=\"\"\n  STEAM_AUTH=\"\"\nfi\ncd /tmp\nmkdir -p /mnt/server/steamcmd\ncurl -sSL -o steamcmd.tar.gz https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz\ntar -xzvf steamcmd.tar.gz -C /mnt/server/steamcmd\nmkdir -p /mnt/server/steamapps\ncd /mnt/server/steamcmd\nchown -R root:root /mnt\nexport HOME=/mnt/server\n./steamcmd.sh +force_install_dir /mnt/server +login ${STEAM_USER} ${STEAM_PASS} ${STEAM_AUTH} +app_update ${SRCDS_APPID} ${INSTALL_FLAGS} validate +quit\nmkdir -p /mnt/server/.steam/sdk32\ncp -v linux32/steamclient.so /mnt/server/.steam/sdk32/steamclient.so\nmkdir -p /mnt/server/.steam/sdk64\ncp -v linux64/steamclient.so /mnt/server/.steam/sdk64/steamclient.so\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/rust/startup.sh\" -o /mnt/server/startup.sh\ncurl -fsSL \"https://raw.githubusercontent.com/tensacraft/eggs/main/rust/config.defaults.sh\" -o /mnt/server/config.defaults.sh\nif [[ ! -f /mnt/server/config.sh ]]; then\n  cp /mnt/server/config.defaults.sh /mnt/server/config.sh\nfi\nchmod +x /mnt/server/startup.sh\nchmod 644 /mnt/server/config.defaults.sh\nif [[ -f /mnt/server/config.sh ]]; then\n  chmod 644 /mnt/server/config.sh\nfi\n",
       "container": "ghcr.io/ptero-eggs/installers:debian",
       "entrypoint": "bash"
     }

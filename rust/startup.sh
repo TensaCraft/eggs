@@ -4,7 +4,6 @@ set -euo pipefail
 REPO_SLUG="${REPO_SLUG:-tensacraft/eggs}"
 SCRIPT_SUBPATH="rust/startup.sh"
 CONFIG_DEFAULTS_SUBPATH="rust/config.defaults.sh"
-CONFIG_TEMPLATE_SUBPATH="rust/config.sh"
 
 RUNTIME_WIPE_CRON_SCHEDULES=()
 RUNTIME_WIPE_MAPS=()
@@ -128,8 +127,16 @@ bootstrap_user_config() {
     return
   fi
 
-  log "config.sh missing; bootstrapping from GitHub template."
-  if download_github_file "$CONFIG_TEMPLATE_SUBPATH" "$destination"; then
+  local defaults_path
+  defaults_path="$(container_dir)/config.defaults.sh"
+
+  if [[ ! -f "$defaults_path" ]]; then
+    log "config.sh bootstrap skipped: config.defaults.sh is missing."
+    return
+  fi
+
+  log "config.sh missing; bootstrapping from local managed defaults."
+  if cp "$defaults_path" "$destination"; then
     chmod 644 "$destination"
   else
     rm -f "$destination"
