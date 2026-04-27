@@ -46,6 +46,16 @@
       "field_type": "text"
     },
     {
+      "name": "NeoForge Version",
+      "description": "Optional NeoForge version filter, for example 21.1.228. Leave empty or use latest for the newest Youer build.",
+      "env_variable": "YOUER_NEOFORGE_VERSION",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:20",
+      "field_type": "text"
+    },
+    {
       "name": "Server JAR File",
       "description": "JAR filename",
       "env_variable": "SERVER_JARFILE",

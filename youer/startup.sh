@@ -10,6 +10,7 @@ readonly API_BASE="https://api.mohistmc.com"
 readonly PROJECT_NAME="youer"
 readonly DEFAULT_PROJECT_VERSION="1.21.1"
 PROJECT_VERSION="${YOUER_VERSION:-${DEFAULT_PROJECT_VERSION}}"
+NEOFORGE_VERSION_FILTER="${YOUER_NEOFORGE_VERSION:-}"
 
 mkdir -p "${CACHE_DIR}"
 
@@ -53,6 +54,20 @@ validate_project_version() {
     fi
 }
 
+validate_neoforge_version_filter() {
+    [ -z "$NEOFORGE_VERSION_FILTER" ] && return 0
+
+    if [ "${NEOFORGE_VERSION_FILTER,,}" = "latest" ]; then
+        NEOFORGE_VERSION_FILTER=""
+        return 0
+    fi
+
+    if [[ ! "$NEOFORGE_VERSION_FILTER" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        log_err "Invalid YOUER_NEOFORGE_VERSION: ${NEOFORGE_VERSION_FILTER}"
+        exit 1
+    fi
+}
+
 resolve_version() {
     if [ "${PROJECT_VERSION,,}" = "latest" ]; then
         local resp
@@ -67,6 +82,7 @@ resolve_version() {
     fi
 
     validate_project_version
+    validate_neoforge_version_filter
 }
 
 resolve_build() {
@@ -74,12 +90,31 @@ resolve_build() {
     resp=$(curl -fsSL "${API_BASE}/project/${PROJECT_NAME}/${PROJECT_VERSION}/builds" 2>/dev/null) \
         || { log_err "Failed to fetch Youer builds for ${PROJECT_VERSION}"; exit 1; }
 
-    BUILD_NUMBER=$(echo "$resp" | grep -o '"id":[0-9]*' | head -1 | sed 's/.*://')
+    local selected_build
+    if [ -n "$NEOFORGE_VERSION_FILTER" ]; then
+        selected_build=$(echo "$resp" | sed 's/},{/}\n{/g' \
+            | grep -F "\"neoforge_version\":\"${NEOFORGE_VERSION_FILTER}\"" | head -1)
+
+        if [ -z "$selected_build" ]; then
+            local available_versions
+            available_versions=$(echo "$resp" | grep -o '"neoforge_version":"[^"]*"' \
+                | sed 's/.*"neoforge_version":"\([^"]*\)".*/\1/' | sort -Vr | uniq | head -10 | tr '\n' ' ')
+            log_err "No Youer build found for ${PROJECT_VERSION} with NeoForge ${NEOFORGE_VERSION_FILTER}"
+            [ -n "$available_versions" ] && log_err "Available NeoForge versions include: ${available_versions}"
+            exit 1
+        fi
+
+        log "NeoForge filter: ${NEOFORGE_VERSION_FILTER}"
+    else
+        selected_build=$(echo "$resp" | sed 's/},{/}\n{/g' | head -1)
+    fi
+
+    BUILD_NUMBER=$(echo "$selected_build" | grep -o '"id":[0-9]*' | head -1 | sed 's/.*://')
     [ -z "$BUILD_NUMBER" ] && { log_err "No build number found for Youer ${PROJECT_VERSION}"; exit 1; }
 
-    NEOFORGE_VERSION=$(echo "$resp" | grep -o '"neoforge_version":"[^"]*"' | head -1 \
+    NEOFORGE_VERSION=$(echo "$selected_build" | grep -o '"neoforge_version":"[^"]*"' | head -1 \
         | sed 's/.*"neoforge_version":"\([^"]*\)".*/\1/')
-    COMMIT_HASH=$(echo "$resp" | grep -o '"hash":"[^"]*"' | head -1 \
+    COMMIT_HASH=$(echo "$selected_build" | grep -o '"hash":"[^"]*"' | head -1 \
         | sed 's/.*"hash":"\([^"]*\)".*/\1/')
 
     DOWNLOAD_URL="${API_BASE}/project/${PROJECT_NAME}/${PROJECT_VERSION}/builds/${BUILD_NUMBER}/download"
