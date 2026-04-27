@@ -3,7 +3,7 @@
   "meta": { "version": "PTDL_v2", "update_url": "https://raw.githubusercontent.com/tensacraft/eggs/main/youer/egg-youer.json" },
   "name": "Youer auto-update",
   "author": "xgigabaitx@gmail.com",
-  "description": "MohistMC Youer 1.21.1 hybrid server. Smart auto-update. startup.sh auto-updates from GitHub.",
+  "description": "MohistMC Youer hybrid server. Select the Minecraft version or use latest. Smart auto-update. startup.sh auto-updates from GitHub.",
   "features": ["eula", "java_version", "pid_limit"],
   "docker_images": {
     "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
@@ -25,6 +25,16 @@
     }
   },
   "variables": [
+    {
+      "name": "Youer Version",
+      "description": "Youer Minecraft version, for example 1.21.1, or latest",
+      "env_variable": "YOUER_VERSION",
+      "default_value": "1.21.1",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:20",
+      "field_type": "text"
+    },
     {
       "name": "Auto Update",
       "description": "Download a new Youer build only when one is available",

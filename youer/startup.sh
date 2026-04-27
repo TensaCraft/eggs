@@ -8,7 +8,8 @@ readonly SHA_CACHE="${CACHE_DIR}/startup_sha"
 readonly SCRIPT_SUBPATH="youer/startup.sh"
 readonly API_BASE="https://api.mohistmc.com"
 readonly PROJECT_NAME="youer"
-readonly PROJECT_VERSION="1.21.1"
+readonly DEFAULT_PROJECT_VERSION="1.21.1"
+PROJECT_VERSION="${YOUER_VERSION:-${DEFAULT_PROJECT_VERSION}}"
 
 mkdir -p "${CACHE_DIR}"
 
@@ -44,6 +45,29 @@ self_update() {
 }
 
 self_update "$@"
+
+validate_project_version() {
+    if [[ ! "$PROJECT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        log_err "Invalid YOUER_VERSION: ${PROJECT_VERSION}"
+        exit 1
+    fi
+}
+
+resolve_version() {
+    if [ "${PROJECT_VERSION,,}" = "latest" ]; then
+        local resp
+        resp=$(curl -fsSL "${API_BASE}/project/${PROJECT_NAME}/versions" 2>/dev/null) \
+            || { log_err "Failed to fetch Youer versions"; exit 1; }
+
+        PROJECT_VERSION=$(echo "$resp" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 \
+            | sed 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+        [ -z "$PROJECT_VERSION" ] && { log_err "No Youer version found"; exit 1; }
+
+        log "Resolved latest Youer version: ${PROJECT_VERSION}"
+    fi
+
+    validate_project_version
+}
 
 resolve_build() {
     local resp
@@ -101,11 +125,12 @@ maybe_update() {
 }
 
 if is_true "${AUTO_UPDATE}"; then
+    resolve_version
     log "AUTO_UPDATE: checking Youer ${PROJECT_VERSION}..."
     maybe_update
 else
     log "AUTO_UPDATE: disabled."
-    [ ! -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ] && { log "JAR not found, downloading..."; maybe_update; }
+    [ ! -f "${CONTAINER_DIR}/${SERVER_JARFILE}" ] && { resolve_version; log "JAR not found, downloading Youer ${PROJECT_VERSION}..."; maybe_update; }
 fi
 
 log "Starting Youer ${PROJECT_VERSION}..."
